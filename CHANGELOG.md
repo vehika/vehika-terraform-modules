@@ -2,9 +2,7 @@
 
 Versões do repositório inteiro (tags `vX.Y.Z`). Ver [Versionamento](README.md#versionamento).
 
-## 0.1.0
-
-Não lançado (a data é definida na tag).
+## 0.1.0 (2026-10-17)
 
 ### Adicionado
 
