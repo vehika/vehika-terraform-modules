@@ -1,0 +1,92 @@
+name: ci
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions: {}
+
+jobs:
+  checks:
+    name: checks
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+
+      - name: Guarda contra dados reais
+        run: |
+          pattern='(^|[^0-9A-Za-z])[0-9]{12}([^0-9A-Za-z]|$)|arn:aws[a-z-]*:[a-z0-9-]*:[a-z0-9-]*:[0-9]{12}:|[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}|vehika-(global|staging|production)|/vehika/(global|staging|production|ci|bootstrap)/'
+          status=0
+          git grep -nIE -e "$pattern" || status=$?
+          case "$status" in
+            0)
+              echo "::error::Repositório público: encontrado ID de conta, ARN com conta, e-mail ou nome físico de ambiente. Use variáveis."
+              exit 1
+              ;;
+            1)
+              echo "Guarda contra dados reais: ok."
+              ;;
+            *)
+              echo "::error::git grep falhou (código $status)."
+              exit "$status"
+              ;;
+          esac
+
+      - name: Ler versão do Terraform
+        id: version
+        run: echo "terraform=$(cat .terraform-version)" >> "$GITHUB_OUTPUT"
+
+      - name: Instalar Terraform
+        uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3
+        with:
+          terraform_version: ${{ steps.version.outputs.terraform }}
+          terraform_wrapper: false
+
+      - name: terraform fmt
+        run: terraform fmt -check -recursive -diff
+
+      - name: terraform validate
+        run: |
+          for dir in lambda-function examples/basic; do
+            echo "::group::validate $dir"
+            terraform -chdir="$dir" init -backend=false -input=false
+            terraform -chdir="$dir" validate
+            echo "::endgroup::"
+          done
+
+      - name: terraform test
+        run: |
+          for dir in lambda-function; do
+            echo "::group::test $dir"
+            terraform -chdir="$dir" test
+            echo "::endgroup::"
+          done
+
+      - name: Instalar tflint
+        uses: terraform-linters/setup-tflint@90f302c255ef959cbfb4bd10581afecdb7ece3e6 # v4
+        with:
+          tflint_version: v0.55.0
+
+      - name: tflint
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          tflint --init --config="$GITHUB_WORKSPACE/.tflint.hcl"
+          tflint --recursive --config="$GITHUB_WORKSPACE/.tflint.hcl" --format=compact
+
+      - name: trivy (config)
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        env:
+          TRIVY_IGNOREFILE: .trivyignore.yaml
+        with:
+          scan-type: config
+          scan-ref: .
+          severity: HIGH,CRITICAL
+          exit-code: "1"

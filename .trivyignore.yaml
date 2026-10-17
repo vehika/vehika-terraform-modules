@@ -1,0 +1,4 @@
+# Exceções do `trivy config`. Cada item precisa de `id` e de `statement` com a
+# justificativa; só entra aqui o que o trivy de fato apontar.
+# VEH-25: o trivy 0.76 não aponta nada HIGH/CRITICAL (nem LOW/MEDIUM) nos módulos.
+misconfigurations: []
