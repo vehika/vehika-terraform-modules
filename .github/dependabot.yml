@@ -8,6 +8,15 @@ updates:
   - package-ecosystem: terraform
     directories:
       - /lambda-function
+      - /vpc
+      - /rds-postgres
+      - /ecs-service
+      - /alb
       - /examples/basic
+      - /examples/vpc
+      - /examples/rds-postgres
+      - /examples/ecs-service
+      - /examples/alb
+      - /examples/complete
     schedule:
       interval: weekly

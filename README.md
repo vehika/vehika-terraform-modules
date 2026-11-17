@@ -21,6 +21,10 @@ Fixe sempre uma tag (`?ref=vX.Y.Z`), nunca uma branch. Os módulos não declaram
 | Módulo | Descrição | Desde |
 | --- | --- | --- |
 | [`lambda-function`](lambda-function) | Função Lambda com log group próprio, role com permissions boundary obrigatório, X-Ray e alarme de erros. | `v0.1.0` |
+| [`vpc`](vpc) | VPC com subnets públicas e privadas em 2 ou mais zonas, endpoint gateway do S3, flow logs opcionais e NAT opcional (desligado por padrão). | `v0.1.1` |
+| [`rds-postgres`](rds-postgres) | RDS PostgreSQL 17 com gp3 e autoscaling, PITR, TLS obrigatório, deletion protection, senha master no Secrets Manager, cópia dos backups em outra região e alarmes. | `v0.1.1` |
+| [`ecs-service`](ecs-service) | Serviço ECS Fargate ARM64 com segredos por referência, Fargate ou Fargate Spot, circuit breaker, autoscaling por CPU, roles com boundary obrigatório e security group que só aceita os SGs informados. | `v0.1.1` |
+| [`alb`](alb) | ALB público com HTTPS (certificado do ACM por variável), redirecionamento 80 → 443, TLS moderno, WAFv2 com rate limit e regras gerenciadas, access logs opcionais e alarmes. | `v0.1.1` |
 
 Exemplos em [`examples/`](examples).
 
@@ -68,6 +72,8 @@ terraform init -backend=false
 terraform validate
 terraform test
 ```
+
+Exceções do `trivy` ficam em [`.trivyignore.yaml`](.trivyignore.yaml) ou, quando valem só para um recurso e um valor, num comentário `#trivy:ignore:<ID>[atributo=valor]` logo acima do recurso, com a justificativa no comentário. Hoje há duas: `AWS-0104` na saída HTTPS do `ecs-service` (só `from_port = 443`) e `AWS-0053` no `aws_lb` do `alb`.
 
 Quando um teste precisa de um ID de conta com formato válido (o provider valida ARNs), use sempre o mesmo ID fictício, gerado com `format("%012d", 0)`, em vez de escrever o número: a guarda recusa números de 12 dígitos literais. Nomes nos testes e exemplos são genéricos (`example-*`).
 
