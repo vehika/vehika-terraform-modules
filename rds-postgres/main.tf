@@ -3,8 +3,12 @@ locals {
   parameter_group_family = "postgres${local.engine_major}"
 
   # rds.force_ssl vem primeiro e não pode ser sobrescrito (validação em var.parameters).
+  # apply_method = "pending-reboot": a partir do PostgreSQL 15 o valor padrão da AWS já é 1,
+  # e a AWS registra o parâmetro com pending-reboot. Ela não troca só o apply_method sem
+  # mudar o valor, então "immediate" gera diff perpétuo no plan. O parâmetro é dinâmico e o
+  # valor não muda, logo nenhum reboot é necessário.
   parameters = concat(
-    [{ name = "rds.force_ssl", value = "1", apply_method = "immediate" }],
+    [{ name = "rds.force_ssl", value = "1", apply_method = "pending-reboot" }],
     var.parameters,
   )
 
