@@ -54,7 +54,7 @@ jobs:
 
       - name: terraform validate
         run: |
-          for dir in lambda-function examples/basic; do
+          for dir in lambda-function vpc rds-postgres ecs-service alb examples/basic examples/vpc examples/rds-postgres examples/ecs-service examples/alb examples/complete; do
             echo "::group::validate $dir"
             terraform -chdir="$dir" init -backend=false -input=false
             terraform -chdir="$dir" validate
@@ -63,7 +63,7 @@ jobs:
 
       - name: terraform test
         run: |
-          for dir in lambda-function; do
+          for dir in lambda-function vpc rds-postgres ecs-service alb; do
             echo "::group::test $dir"
             terraform -chdir="$dir" test
             echo "::endgroup::"

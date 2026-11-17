@@ -10,12 +10,12 @@ Versões do repositório inteiro (tags `vX.Y.Z`). Ver [Versionamento](README.md#
 - Módulo `rds-postgres`: PostgreSQL 17 em `db.t4g.micro`, gp3 com autoscaling de armazenamento, criptografia sempre ligada com CMK opcional, `manage_master_user_password` com CMK opcional do segredo, parameter group próprio com `rds.force_ssl = 1`, PITR configurável (1 a 35 dias, padrão 14), deletion protection, snapshot final obrigatório, backups automáticos preservados, suporte estendido pago desligado, single-AZ e sem acesso público por padrão (Multi-AZ e acesso público por variável), security group sem saída e com entrada só dos SGs autorizados, replicação dos backups automáticos para outra região (`aws_db_instance_automated_backups_replication` pelo argumento `region` do provider 6, sem provider com alias, com chave KMS da região de destino), exportação de logs opcional com log groups próprios e alarmes de CPU, memória livre, armazenamento livre e conexões.
 - Módulo `ecs-service`: task definition Fargate `ARM64` de um contêiner, segredos do SSM (nome ou ARN) ou do Secrets Manager só por `valueFrom`, capacity provider strategy com `FARGATE` e/ou `FARGATE_SPOT`, circuit breaker com rollback, autoscaling por CPU opcional, log group com retenção e CMK opcional, roles de tarefa e de execução com caminho e permissions boundary obrigatórios (sem padrão, validados) e políticas com ARNs exatos, security group com entrada só dos SGs informados e saída por regras (padrão só TCP 443), ECS Exec opcional e alarmes de CPU e memória.
 - Módulo `alb`: ALB voltado à internet com listener HTTPS (certificado do ACM por variável; o módulo não cria certificado, validação nem DNS), redirecionamento 301 de 80 para 443, `ELBSecurityPolicy-TLS13-1-2-2021-06`, `drop_invalid_header_fields`, desync `defensive`, deletion protection, target groups do tipo `ip`, regras por host e caminho, certificados SNI, HSTS opcional, access logs opcionais, WAFv2 associado com rate limit por IP (cabeçalho de IP encaminhado opcional) e as regras gerenciadas IpReputation, Common e KnownBadInputs (exceções em modo count por variável, logs opcionais com `authorization` e `cookie` omitidos) e alarmes de 5xx do ALB, 5xx dos alvos, latência p95 e alvos saudáveis por target group.
-- Exemplos `examples/vpc`, `examples/rds-postgres`, `examples/ecs-service` (com cluster e capacity providers) e `examples/alb`.
-- Exceções do `trivy` por comentário no recurso: `AWS-0104` na saída HTTPS do `ecs-service` e `AWS-0053` no ALB público.
-
-### Pendente antes da tag
-
-- Incluir os módulos e exemplos novos no `validate`/`test` do `ci.yml` e no `dependabot.yml`.
+- Security groups do `rds-postgres`, do `ecs-service` e do `alb` com `name_prefix` (`<nome>-`) e `create_before_destroy`.
+- `ecs-service`: `secrets` aceita só o ARN **completo** do Secrets Manager (com o sufixo `-XXXXXX`, inclusive `rds!db-...`), para a política da role de execução usar o ARN exato, sem curinga.
+- Exemplos `examples/vpc`, `examples/rds-postgres`, `examples/ecs-service` (com cluster e capacity providers), `examples/alb` e `examples/complete` (vpc + alb + API e worker no `ecs-service` + `rds-postgres`, com as referências cruzadas de security group).
+- Teste de plan da composição no `ecs-service` (`tests/composition`), com o ARN do target group, os IDs dos security groups e o ARN do segredo do RDS conhecidos só no apply.
+- Exceções do `trivy` por comentário no recurso: `AWS-0104` na saída HTTPS do `ecs-service` e `AWS-0053` no ALB público. A entrada `0.0.0.0/0` do ALB só em 80 e 443 é exceção declarada no README do `alb`.
+- CI: `validate` nos módulos e exemplos novos e `terraform test` nos módulos novos; Dependabot nos mesmos diretórios.
 
 ## 0.1.0 (2026-10-17)
 
