@@ -47,8 +47,10 @@ resource "aws_db_subnet_group" "this" {
   tags        = var.tags
 }
 
+# name_prefix com create_before_destroy: uma troca do grupo (ex.: de VPC)
+# cria o novo antes de soltar o antigo, sem colisão de nome.
 resource "aws_security_group" "this" {
-  name        = var.identifier
+  name_prefix = "${var.identifier}-"
   description = "Instancia RDS ${var.identifier}: entrada so dos security groups autorizados."
   vpc_id      = var.vpc_id
   tags        = merge(var.tags, { Name = var.identifier })

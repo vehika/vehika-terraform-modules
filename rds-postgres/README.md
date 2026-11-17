@@ -7,7 +7,7 @@ Instância RDS PostgreSQL barata e protegida por padrão: PostgreSQL 17 em `db.t
 | Recurso | Nome | Detalhe |
 | --- | --- | --- |
 | `aws_db_subnet_group` | `<identifier>` | Subnets informadas (normalmente as privadas), em pelo menos duas zonas. |
-| `aws_security_group` | `<identifier>` | **Sem regra de saída.** Entrada só na porta do banco e só dos security groups de `allowed_security_groups` (uma `aws_vpc_security_group_ingress_rule` por item). |
+| `aws_security_group` | `<identifier>-<sufixo>` | `name_prefix` com `create_before_destroy`. **Sem regra de saída.** Entrada só na porta do banco e só dos security groups de `allowed_security_groups` (uma `aws_vpc_security_group_ingress_rule` por item). |
 | `aws_db_parameter_group` | `<identifier>-postgres<major>` | `rds.force_ssl = 1` fixo, mais os `parameters` extras. `create_before_destroy` para trocas de família. |
 | `aws_db_instance` | `<identifier>` | PostgreSQL `17`, `db.t4g.micro`, gp3 20 GiB com autoscaling até 100 GiB, criptografia sempre ligada (CMK opcional), `manage_master_user_password`, single-AZ, sem acesso público, PITR de 14 dias, deletion protection, snapshot final obrigatório, backups automáticos preservados ao apagar, `copy_tags_to_snapshot`, suporte estendido pago desligado. |
 | `aws_db_instance_automated_backups_replication` | — | Só com `backup_replication_enabled`. Criado na região `backup_replication_region` com a chave KMS de lá. |
@@ -126,7 +126,10 @@ Exemplo completo em [`examples/rds-postgres`](../examples/rds-postgres).
 
 ## Avisos
 
-- **Senha master fora do Terraform.** O RDS gera a senha e a guarda num segredo do Secrets Manager (cerca de US$ 0,40/mês). Nada vai para o estado, o plan ou as saídas, só o ARN. O RDS **gira essa senha automaticamente** (a cada 7 dias, por padrão): quem usa o usuário master precisa ler o segredo em tempo de execução. Para a aplicação, prefira um usuário próprio, criado por migração, com a senha num SecureString administrado fora do Terraform.
+- **Senha master fora do Terraform.** O RDS gera a senha e a guarda num segredo do Secrets Manager (cerca de US$ 0,40/mês). Nada vai para o estado, o plan ou as saídas, só o ARN (`master_user_secret_arn`).
+- **A senha master gira sozinha a cada 7 dias.** Com `manage_master_user_password`, o RDS liga a rotação automática do segredo (padrão de 7 dias) e troca a senha no banco. O ECS só lê segredos (`secrets` do `ecs-service`) **quando a tarefa sobe**: uma tarefa que já está rodando continua com a senha antiga e passa a falhar em conexões novas depois da rotação. Escolha uma das opções:
+  1. **Recomendado:** um usuário próprio da aplicação, criado por migração, com privilégios mínimos e a senha (ou a `DATABASE_URL`) num SecureString do SSM administrado fora do Terraform. A senha só muda quando o administrador decide, com redeploy planejado. O usuário master fica só para administração.
+  2. Usar o segredo do RDS direto na aplicação: referencie `master_user_secret_arn` (ex.: `"${module.database.master_user_secret_arn}:password::"` em `secrets`) e planeje um redeploy logo depois de cada rotação. Outra saída é a aplicação ler o segredo do Secrets Manager em tempo de execução e reconectar quando a autenticação falhar. Mudar a frequência da rotação é feito no Secrets Manager, fora deste módulo.
 - **TLS obrigatório.** `rds.force_ssl = 1` recusa conexões sem TLS. Os clientes precisam de `sslmode=require` (ou `verify-full` com o bundle da CA do RDS).
 - **Destruir exige dois passos.** Com `deletion_protection = true`, desligue a proteção num apply e só então apague. O snapshot final é sempre tirado, e os backups automáticos ficam até expirar.
 - **Trocar a CMK ou o `identifier` recria a instância.** Revise o plan: destruir `aws_db_instance` é perda de dados se não houver restore.
