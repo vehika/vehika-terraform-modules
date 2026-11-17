@@ -246,3 +246,35 @@ run "rejects_invalid_name" {
 
   expect_failures = [var.name]
 }
+
+run "rejects_rebalancing_enabled_with_zero_to_one_hundred" {
+  command = plan
+
+  variables {
+    deployment_minimum_healthy_percent = 0
+    deployment_maximum_percent         = 100
+    availability_zone_rebalancing      = "ENABLED"
+  }
+
+  expect_failures = [var.availability_zone_rebalancing]
+}
+
+run "rejects_default_rebalancing_with_maximum_percent_100" {
+  command = plan
+
+  variables {
+    deployment_maximum_percent = 100
+  }
+
+  expect_failures = [var.availability_zone_rebalancing]
+}
+
+run "rejects_invalid_rebalancing_value" {
+  command = plan
+
+  variables {
+    availability_zone_rebalancing = "enabled"
+  }
+
+  expect_failures = [var.availability_zone_rebalancing]
+}

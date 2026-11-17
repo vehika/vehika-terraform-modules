@@ -26,7 +26,10 @@ module "worker" {
   role_path                = var.role_path
   permissions_boundary_arn = var.permissions_boundary_arn
 
-  capacity_provider_strategy = [{ capacity_provider = "FARGATE_SPOT" }]
+  # FARGATE com ARM64 (padrão): a documentação do ECS não confirma Fargate
+  # Spot com ARM64. Para Spot, use cpu_architecture = "X86_64" depois de
+  # validar.
+  capacity_provider_strategy = [{ capacity_provider = "FARGATE" }]
 
   secrets = var.secrets
 

@@ -285,7 +285,7 @@ variable "desired_count" {
 }
 
 variable "capacity_provider_strategy" {
-  description = "Estratégia de capacity providers: FARGATE (padrão) e/ou FARGATE_SPOT, com weight e base. Ex.: [{ capacity_provider = \"FARGATE_SPOT\" }] para um worker interrompível."
+  description = "Estratégia de capacity providers: FARGATE (padrão) e/ou FARGATE_SPOT, com weight e base. A documentação do ECS não confirma Fargate Spot com ARM64 (o padrão de cpu_architecture): prefira FARGATE com ARM64, ou FARGATE_SPOT com X86_64 depois de validar, só em cargas que toleram interrupção."
   type = list(object({
     capacity_provider = string
     weight            = optional(number, 1)
@@ -323,6 +323,22 @@ variable "deployment_maximum_percent" {
   validation {
     condition     = var.deployment_maximum_percent >= 100 && var.deployment_maximum_percent <= 200
     error_message = "deployment_maximum_percent deve estar entre 100 e 200."
+  }
+}
+
+variable "availability_zone_rebalancing" {
+  description = "Rebalanceamento das tarefas entre zonas de disponibilidade: ENABLED (padrão) ou DISABLED. A AWS não aceita ENABLED com deployment_maximum_percent = 100; um serviço com deploy 0/100 (worker com crons, uma tarefa por vez) precisa de DISABLED."
+  type        = string
+  default     = "ENABLED"
+
+  validation {
+    condition     = contains(["ENABLED", "DISABLED"], var.availability_zone_rebalancing)
+    error_message = "availability_zone_rebalancing deve ser ENABLED ou DISABLED."
+  }
+
+  validation {
+    condition     = var.availability_zone_rebalancing == "DISABLED" || var.deployment_maximum_percent > 100
+    error_message = "availability_zone_rebalancing = \"ENABLED\" exige deployment_maximum_percent maior que 100. A AWS recusa a combinação com \"InvalidParameterException: ... Availability Zone Rebalancing does not support maximumPercent <= 100 % as deployment configuration.\" Para um deploy 0/100 (deployment_minimum_healthy_percent = 0 e deployment_maximum_percent = 100), use availability_zone_rebalancing = \"DISABLED\"."
   }
 }
 
