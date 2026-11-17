@@ -458,6 +458,13 @@ variable "stop_timeout" {
   }
 }
 
+variable "task_definition_skip_destroy" {
+  description = "Mantém ACTIVE a revisão antiga da task definition quando ela é substituída (imagem nova) ou destruída: o Terraform só a tira do estado, sem desregistrar. true (padrão) deixa o rollback do circuit breaker e a volta manual com uma revisão ativa como alvo. As revisões acumulam ACTIVE na conta (sem custo); a limpeza é manual. false desregistra a revisão antiga a cada substituição, como na v0.1.2."
+  type        = bool
+  default     = true
+  nullable    = false
+}
+
 variable "wait_for_steady_state" {
   description = "Faz o apply esperar o serviço estabilizar. Com o circuit breaker, um deploy revertido falha o apply."
   type        = bool

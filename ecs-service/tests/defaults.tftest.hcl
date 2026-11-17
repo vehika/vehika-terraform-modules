@@ -249,3 +249,38 @@ run "rebalancing_disabled_with_default_deployment" {
     error_message = "DISABLED também deve ser aceito com o deploy padrão 100/200."
   }
 }
+
+run "task_definition_skip_destroy_default" {
+  command = plan
+
+  assert {
+    condition     = aws_ecs_task_definition.this.skip_destroy == true
+    error_message = "Por padrão, a revisão antiga da task definition deve continuar ACTIVE (skip_destroy = true) para o rollback do circuit breaker."
+  }
+}
+
+run "task_definition_skip_destroy_disabled" {
+  command = plan
+
+  variables {
+    task_definition_skip_destroy = false
+  }
+
+  assert {
+    condition     = aws_ecs_task_definition.this.skip_destroy == false
+    error_message = "Com task_definition_skip_destroy = false, a substituição deve desregistrar a revisão antiga, como na v0.1.2."
+  }
+}
+
+run "task_definition_skip_destroy_null_uses_default" {
+  command = plan
+
+  variables {
+    task_definition_skip_destroy = null
+  }
+
+  assert {
+    condition     = aws_ecs_task_definition.this.skip_destroy == true
+    error_message = "null não pode cair no padrão false do provider: a variável não é anulável e deve usar true."
+  }
+}
