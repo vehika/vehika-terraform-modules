@@ -35,7 +35,7 @@ Uso aproximado: 927 WCU, abaixo das 1500 incluídas no preço base da web ACL. `
 
 ```hcl
 module "alb" {
-  source = "git::https://github.com/vehika/vehika-terraform-modules.git//alb?ref=v0.2.0"
+  source = "git::https://github.com/vehika/vehika-terraform-modules.git//alb?ref=v0.1.1"
 
   name            = "${local.name_prefix}-alb"
   vpc_id          = module.network.vpc_id

@@ -21,10 +21,10 @@ Fixe sempre uma tag (`?ref=vX.Y.Z`), nunca uma branch. Os módulos não declaram
 | Módulo | Descrição | Desde |
 | --- | --- | --- |
 | [`lambda-function`](lambda-function) | Função Lambda com log group próprio, role com permissions boundary obrigatório, X-Ray e alarme de erros. | `v0.1.0` |
-| [`vpc`](vpc) | VPC com subnets públicas e privadas em 2 ou mais zonas, endpoint gateway do S3, flow logs opcionais e NAT opcional (desligado por padrão). | `v0.2.0` |
-| [`rds-postgres`](rds-postgres) | RDS PostgreSQL 17 com gp3 e autoscaling, PITR, TLS obrigatório, deletion protection, senha master no Secrets Manager, cópia dos backups em outra região e alarmes. | `v0.2.0` |
-| [`ecs-service`](ecs-service) | Serviço ECS Fargate ARM64 com segredos por referência, Fargate ou Fargate Spot, circuit breaker, autoscaling por CPU, roles com boundary obrigatório e security group que só aceita os SGs informados. | `v0.2.0` |
-| [`alb`](alb) | ALB público com HTTPS (certificado do ACM por variável), redirecionamento 80 → 443, TLS moderno, WAFv2 com rate limit e regras gerenciadas, access logs opcionais e alarmes. | `v0.2.0` |
+| [`vpc`](vpc) | VPC com subnets públicas e privadas em 2 ou mais zonas, endpoint gateway do S3, flow logs opcionais e NAT opcional (desligado por padrão). | `v0.1.1` |
+| [`rds-postgres`](rds-postgres) | RDS PostgreSQL 17 com gp3 e autoscaling, PITR, TLS obrigatório, deletion protection, senha master no Secrets Manager, cópia dos backups em outra região e alarmes. | `v0.1.1` |
+| [`ecs-service`](ecs-service) | Serviço ECS Fargate ARM64 com segredos por referência, Fargate ou Fargate Spot, circuit breaker, autoscaling por CPU, roles com boundary obrigatório e security group que só aceita os SGs informados. | `v0.1.1` |
+| [`alb`](alb) | ALB público com HTTPS (certificado do ACM por variável), redirecionamento 80 → 443, TLS moderno, WAFv2 com rate limit e regras gerenciadas, access logs opcionais e alarmes. | `v0.1.1` |
 
 Exemplos em [`examples/`](examples).
 

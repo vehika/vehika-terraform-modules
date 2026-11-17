@@ -35,7 +35,7 @@ Com `backup_replication_enabled = true`, o módulo cria `aws_db_instance_automat
 
 ```hcl
 module "database" {
-  source = "git::https://github.com/vehika/vehika-terraform-modules.git//rds-postgres?ref=v0.2.0"
+  source = "git::https://github.com/vehika/vehika-terraform-modules.git//rds-postgres?ref=v0.1.1"
 
   identifier  = "${local.name_prefix}-db"
   vpc_id      = module.network.vpc_id

@@ -2,7 +2,7 @@
 
 Versões do repositório inteiro (tags `vX.Y.Z`). Ver [Versionamento](README.md#versionamento).
 
-## 0.2.0 (não publicada)
+## 0.1.1 (2026-11-17)
 
 ### Adicionado
 

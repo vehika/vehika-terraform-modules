@@ -26,7 +26,7 @@ API atrás do ALB, em subnet pública sem NAT:
 
 ```hcl
 module "api" {
-  source = "git::https://github.com/vehika/vehika-terraform-modules.git//ecs-service?ref=v0.2.0"
+  source = "git::https://github.com/vehika/vehika-terraform-modules.git//ecs-service?ref=v0.1.1"
 
   name                     = "${local.name_prefix}-api"
   cluster_arn              = aws_ecs_cluster.this.arn

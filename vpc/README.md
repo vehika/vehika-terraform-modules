@@ -35,7 +35,7 @@ Acrescentar uma zona no fim da lista não desloca os CIDRs existentes. Mudar a *
 
 ```hcl
 module "network" {
-  source = "git::https://github.com/vehika/vehika-terraform-modules.git//vpc?ref=v0.2.0"
+  source = "git::https://github.com/vehika/vehika-terraform-modules.git//vpc?ref=v0.1.1"
 
   name               = local.name_prefix
   availability_zones = ["us-east-1a", "us-east-1b"]
