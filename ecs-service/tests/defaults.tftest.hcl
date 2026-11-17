@@ -64,8 +64,8 @@ run "task_definition_defaults" {
   }
 
   assert {
-    condition     = jsondecode(aws_ecs_task_definition.this.container_definitions)[0].portMappings == [] && jsondecode(aws_ecs_task_definition.this.container_definitions)[0].secrets == [] && jsondecode(aws_ecs_task_definition.this.container_definitions)[0].environment == []
-    error_message = "Sem porta, segredos ou variáveis, as listas devem vir vazias."
+    condition     = !can(jsondecode(aws_ecs_task_definition.this.container_definitions)[0].portMappings) && !can(jsondecode(aws_ecs_task_definition.this.container_definitions)[0].secrets) && !can(jsondecode(aws_ecs_task_definition.this.container_definitions)[0].environment)
+    error_message = "Sem porta, segredos ou variáveis, os campos não devem existir (evita diff perpétuo)."
   }
 
   assert {

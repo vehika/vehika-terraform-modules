@@ -38,9 +38,6 @@ locals {
       readonlyRootFilesystem = var.readonly_root_filesystem
       stopTimeout            = var.stop_timeout
       linuxParameters        = { initProcessEnabled = true }
-      environment            = [for env_name in sort(keys(var.environment)) : { name = env_name, value = var.environment[env_name] }]
-      secrets                = [for env_name in sort(keys(local.secret_value_from)) : { name = env_name, valueFrom = local.secret_value_from[env_name] }]
-      portMappings           = var.container_port == null ? [] : [{ containerPort = var.container_port, hostPort = var.container_port, protocol = "tcp" }]
       logConfiguration = {
         logDriver = "awslogs"
         options = {
@@ -50,6 +47,11 @@ locals {
         }
       }
     },
+    # Listas vazias ficam fora: a API não as devolve, e o diff criaria uma
+    # revisão nova da task definition a cada apply.
+    length(var.environment) == 0 ? {} : { environment = [for env_name in sort(keys(var.environment)) : { name = env_name, value = var.environment[env_name] }] },
+    length(var.secrets) == 0 ? {} : { secrets = [for env_name in sort(keys(local.secret_value_from)) : { name = env_name, valueFrom = local.secret_value_from[env_name] }] },
+    var.container_port == null ? {} : { portMappings = [{ containerPort = var.container_port, hostPort = var.container_port, protocol = "tcp" }] },
     var.command == null ? {} : { command = var.command },
     var.entry_point == null ? {} : { entryPoint = var.entry_point },
     var.health_check == null ? {} : {
