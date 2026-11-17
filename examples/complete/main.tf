@@ -118,6 +118,13 @@ module "worker" {
 
   capacity_provider_strategy = [{ capacity_provider = "FARGATE_SPOT" }]
 
+  # Uma tarefa só por vez: no deploy, a antiga para antes de a nova subir, e
+  # os crons não rodam em dobro. stop_timeout de 120 s usa todo o aviso de
+  # interrupção do Spot para terminar o trabalho em andamento.
+  deployment_minimum_healthy_percent = 0
+  deployment_maximum_percent         = 100
+  stop_timeout                       = 120
+
   secrets = {
     DATABASE_URL = var.database_url_parameter_name
   }

@@ -136,7 +136,7 @@ variable "environment" {
 }
 
 variable "secrets" {
-  description = "Segredos injetados como variáveis de ambiente pelo ECS, sem valor no Terraform: chave = nome da variável, valor = nome do parâmetro SSM (ex.: /<org>/<env>/<serviço>/database-url), ARN do parâmetro SSM ou ARN completo de um segredo do Secrets Manager, com o sufixo aleatório -XXXXXX (aceita também :<chave-json>:<estágio>:<versão>). ARN parcial do Secrets Manager não é aceito. A role de execução recebe leitura só nesses ARNs."
+  description = "Segredos injetados como variáveis de ambiente pelo ECS, sem valor no Terraform: chave = nome da variável, valor = nome do parâmetro SSM (ex.: /<org>/<env>/<serviço>/database-url), ARN do parâmetro SSM ou ARN completo de um segredo do Secrets Manager, com o sufixo aleatório -XXXXXX (aceita também :<chave-json>:<estágio>:<versão>). A validação recusa a maioria dos ARNs parciais; use sempre o arn do recurso ou do data source, ou o master_user_secret_arn. A role de execução recebe leitura só nesses ARNs."
   type        = map(string)
   default     = {}
 
