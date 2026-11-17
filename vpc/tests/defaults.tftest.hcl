@@ -8,8 +8,8 @@ mock_provider "aws" {
     }
   }
 
-  # Todas as instâncias de um override recebem o mesmo valor: basta para
-  # provar que o endpoint usa as tabelas pública e privadas.
+  # IDs distintos por instância provam que o endpoint usa a tabela pública e
+  # as duas privadas.
   override_resource {
     target = aws_route_table.public
     values = {
@@ -18,9 +18,16 @@ mock_provider "aws" {
   }
 
   override_resource {
-    target = aws_route_table.private
+    target = aws_route_table.private[0]
     values = {
-      id = "rtb-private"
+      id = "rtb-private-a"
+    }
+  }
+
+  override_resource {
+    target = aws_route_table.private[1]
+    values = {
+      id = "rtb-private-b"
     }
   }
 }
@@ -92,8 +99,8 @@ run "routing_without_nat" {
   }
 
   assert {
-    condition     = length(aws_route_table.private) == 2 && length(aws_route_table_association.private) == 2
-    error_message = "Deve haver uma tabela de rotas privada por zona."
+    condition     = length(aws_route_table.private) == 2 && [for association in aws_route_table_association.private : association.route_table_id] == ["rtb-private-a", "rtb-private-b"]
+    error_message = "Cada subnet privada deve se associar à tabela privada da própria zona."
   }
 
   assert {
@@ -116,8 +123,8 @@ run "s3_endpoint" {
   }
 
   assert {
-    condition     = aws_vpc_endpoint.s3[0].route_table_ids == toset(["rtb-public", "rtb-private"])
-    error_message = "O endpoint deve estar associado à tabela pública e às privadas."
+    condition     = aws_vpc_endpoint.s3[0].route_table_ids == toset(["rtb-public", "rtb-private-a", "rtb-private-b"])
+    error_message = "O endpoint deve estar associado à tabela pública e às duas privadas."
   }
 }
 
