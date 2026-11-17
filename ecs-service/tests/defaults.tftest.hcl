@@ -183,7 +183,7 @@ run "security_group" {
   command = plan
 
   assert {
-    condition     = aws_security_group.this.name == "example-worker" && aws_security_group.this.vpc_id == "vpc-0example"
+    condition     = aws_security_group.this.name_prefix == "example-worker-" && aws_security_group.this.vpc_id == "vpc-0example"
     error_message = "O security group deve ser criado na VPC informada."
   }
 

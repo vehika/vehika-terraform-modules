@@ -12,7 +12,7 @@ Serviço ECS no Fargate (ARM64 por padrão) com task definition de um contêiner
 | `aws_iam_role` `task` | `<name>-task` | Usada pela aplicação. Caminho e boundary obrigatórios. Confiança em `ecs-tasks.amazonaws.com` com `aws:SourceAccount` e `aws:SourceArn` da conta e região. Nasce sem permissões. |
 | `aws_iam_role_policy` `task` | chave do mapa | Uma por item de `task_role_policies`. |
 | `aws_iam_role_policy` `ecs_exec` | `ecs-exec` | Só com `enable_execute_command`: ações `ssmmessages` (sem escopo por recurso). |
-| `aws_security_group` | `<name>` | Entrada só na `container_port` e só dos `allowed_security_groups`; nenhuma entrada por CIDR. Saída por `egress_rules` (padrão: só TCP 443 para `0.0.0.0/0`). |
+| `aws_security_group` | `<name>-<sufixo>` | `name_prefix` com `create_before_destroy`. Entrada só na `container_port` e só dos `allowed_security_groups`; nenhuma entrada por CIDR. Saída por `egress_rules` (padrão: só TCP 443 para `0.0.0.0/0`). |
 | `aws_ecs_task_definition` | família `<name>` | Fargate, `awsvpc`, `ARM64`/Linux, 256 CPU e 512 MiB, contêiner `app` essencial com `initProcessEnabled`, logs `awslogs`, variáveis ordenadas e segredos por `valueFrom`. |
 | `aws_ecs_service` | `<name>` | Capacity provider strategy (padrão `FARGATE`), circuit breaker com rollback, `availability_zone_rebalancing`, tags propagadas do serviço, target group opcional. `desired_count` ignorado depois da criação. |
 | `aws_appautoscaling_target` + `aws_appautoscaling_policy` | `<name>-cpu` | Só com `autoscaling_max_capacity`: target tracking de `ECSServiceAverageCPUUtilization` (alvo 70%). |
@@ -85,7 +85,7 @@ As **chaves** de `secrets`, `task_role_policies`, `allowed_security_groups` e `e
 | `cpu_architecture` | `string` | `"ARM64"` | `ARM64` ou `X86_64`. |
 | `command` / `entry_point` | `list(string)` | `null` | Substituem CMD/ENTRYPOINT da imagem. |
 | `environment` | `map(string)` | `{}` | Variáveis de ambiente. Nunca segredos. |
-| `secrets` | `map(string)` | `{}` | Variável => nome do parâmetro SSM, ARN do parâmetro ou ARN do Secrets Manager (com sufixo de chave JSON opcional). |
+| `secrets` | `map(string)` | `{}` | Variável => nome do parâmetro SSM, ARN do parâmetro ou ARN **completo** do Secrets Manager (com o sufixo `-XXXXXX`; chave JSON opcional). |
 | `secrets_kms_key_arns` | `list(string)` | `[]` | CMKs dos segredos (`kms:Decrypt`). |
 | `ecr_repository_arns` | `list(string)` | `[]` | Repositórios ECR de onde a imagem vem. |
 | `task_role_name` / `execution_role_name` | `string` | `null` | Nomes das roles; nulo usa `<name>-task` / `<name>-execution`. |
@@ -132,6 +132,7 @@ As **chaves** de `secrets`, `task_role_policies`, `allowed_security_groups` e `e
 ## Avisos
 
 - **Segredos só por referência.** `secrets` recebe nomes ou ARNs; o ECS lê o valor ao iniciar a tarefa e o injeta como variável de ambiente. Nenhum valor passa pelo Terraform. Um nome de parâmetro SSM vira ARN na região e conta atuais. O parâmetro precisa existir antes da tarefa subir (SecureString criado pelo administrador). Mudar o valor do segredo só vale para tarefas novas: force um deploy.
+- **ARN completo do Secrets Manager.** O ARN de um segredo termina com um sufixo aleatório de 6 caracteres (`...:secret:<nome>-AbCdEf`). O módulo exige esse ARN completo (ex.: `master_user_secret_arn` do `rds-postgres`, ou o `arn` do recurso ou data source do segredo), para que a role de execução receba `secretsmanager:GetSecretValue` só no ARN exato. ARN parcial (sem o sufixo) exigiria curinga `-??????` na política e é recusado na validação. Quando o ARN só é conhecido no apply, a validação fica para o apply.
 - **Sem NAT.** Em subnet pública, use `assign_public_ip = true`; sem IP público e sem NAT, a tarefa não puxa a imagem nem lê segredos. O security group continua sem entrada da internet.
 - **Saída `0.0.0.0/0` na porta 443.** É o padrão porque, sem NAT nem endpoints de interface, ECR, SSM, Secrets Manager, CloudWatch Logs e APIs externas só são alcançados pelos endpoints públicos. O trivy aponta AWS-0104; a exceção fica no próprio recurso e vale só para regras com `from_port = 443`. Regras mais amplas continuam reprovando.
 - **`desired_count` só na criação.** O módulo ignora mudanças nele para não brigar com o autoscaling. Para mudar a contagem sem autoscaling, use `autoscaling_min_capacity = autoscaling_max_capacity`.

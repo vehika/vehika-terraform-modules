@@ -136,7 +136,7 @@ variable "environment" {
 }
 
 variable "secrets" {
-  description = "Segredos injetados como variáveis de ambiente pelo ECS, sem valor no Terraform: chave = nome da variável, valor = nome do parâmetro SSM (ex.: /<org>/<env>/<serviço>/database-url), ARN do parâmetro SSM ou ARN de um segredo do Secrets Manager (aceita o sufixo :<chave-json>:<estágio>:<versão>). A role de execução recebe leitura só nesses ARNs."
+  description = "Segredos injetados como variáveis de ambiente pelo ECS, sem valor no Terraform: chave = nome da variável, valor = nome do parâmetro SSM (ex.: /<org>/<env>/<serviço>/database-url), ARN do parâmetro SSM ou ARN completo de um segredo do Secrets Manager, com o sufixo aleatório -XXXXXX (aceita também :<chave-json>:<estágio>:<versão>). ARN parcial do Secrets Manager não é aceito. A role de execução recebe leitura só nesses ARNs."
   type        = map(string)
   default     = {}
 
@@ -149,9 +149,9 @@ variable "secrets" {
     condition = alltrue([for value_from in values(var.secrets) : (
       can(regex("^/?[A-Za-z0-9_.-]+(/[A-Za-z0-9_.-]+)*$", value_from)) ||
       can(regex("^arn:aws[a-z-]*:ssm:[a-z0-9-]+:[0-9]{12}:parameter/.+$", value_from)) ||
-      can(regex("^arn:aws[a-z-]*:secretsmanager:[a-z0-9-]+:[0-9]{12}:secret:.+$", value_from))
+      can(regex("^arn:aws[a-z-]*:secretsmanager:[a-z0-9-]+:[0-9]{12}:secret:[A-Za-z0-9/_+=.@!-]+-[A-Za-z0-9]{6}(:[^:]*:[^:]*:[^:]*)?$", value_from))
     )])
-    error_message = "Cada valor de secrets deve ser o nome de um parâmetro SSM, o ARN de um parâmetro SSM ou o ARN de um segredo do Secrets Manager."
+    error_message = "Cada valor de secrets deve ser o nome de um parâmetro SSM, o ARN de um parâmetro SSM ou o ARN completo de um segredo do Secrets Manager (com o sufixo -XXXXXX e, opcionalmente, :<chave-json>:<estágio>:<versão>)."
   }
 
   validation {

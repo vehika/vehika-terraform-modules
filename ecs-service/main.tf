@@ -25,7 +25,9 @@ locals {
     for value_from in values(local.secret_value_from) : value_from if strcontains(value_from, ":ssm:")
   ]))
 
-  # Remove o sufixo :<chave-json>:<estágio>:<versão>; o ARN do segredo tem 7 partes.
+  # Remove o sufixo :<chave-json>:<estágio>:<versão>; o ARN do segredo tem 7
+  # partes. A validação de var.secrets exige o ARN completo (com o sufixo
+  # aleatório -XXXXXX), então a política usa o ARN exato, sem curinga.
   secrets_manager_arns = sort(distinct([
     for value_from in values(local.secret_value_from) : join(":", slice(split(":", value_from), 0, 7)) if strcontains(value_from, ":secretsmanager:")
   ]))
@@ -221,8 +223,10 @@ resource "aws_iam_role_policy" "task" {
   policy = each.value
 }
 
+# name_prefix com create_before_destroy: uma troca do grupo cria o novo
+# antes de soltar o antigo, sem colisão de nome.
 resource "aws_security_group" "this" {
-  name        = var.name
+  name_prefix = "${var.name}-"
   description = "Tarefas do servico ECS ${var.name}: entrada so dos security groups autorizados."
   vpc_id      = var.vpc_id
   tags        = merge(var.tags, { Name = var.name })

@@ -150,6 +150,29 @@ run "rejects_secret_value_that_is_not_a_reference" {
   expect_failures = [var.secrets]
 }
 
+run "rejects_partial_secrets_manager_arn" {
+  command = plan
+
+  variables {
+    secrets = { DB_PASSWORD = "arn:aws:secretsmanager:us-east-1:${format("%012d", 0)}:secret:example-db" }
+  }
+
+  expect_failures = [var.secrets]
+}
+
+run "accepts_full_secrets_manager_arn_with_json_key" {
+  command = plan
+
+  variables {
+    secrets = { DB_PASSWORD = "arn:aws:secretsmanager:us-east-1:${format("%012d", 0)}:secret:rds!db-example-AbCdEf:password::" }
+  }
+
+  assert {
+    condition     = aws_ecs_service.this.name == "example-api"
+    error_message = "O ARN completo de um segredo gerenciado pelo RDS (rds!db-...), com chave JSON, deve ser aceito."
+  }
+}
+
 run "rejects_variable_in_environment_and_secrets" {
   command = plan
 
