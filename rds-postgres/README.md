@@ -35,7 +35,7 @@ Com `backup_replication_enabled = true`, o módulo cria `aws_db_instance_automat
 
 ```hcl
 module "database" {
-  source = "git::https://github.com/vehika/vehika-terraform-modules.git//rds-postgres?ref=v0.1.1"
+  source = "git::https://github.com/vehika/vehika-terraform-modules.git//rds-postgres?ref=v0.1.2"
 
   identifier  = "${local.name_prefix}-db"
   vpc_id      = module.network.vpc_id
@@ -131,7 +131,7 @@ Exemplo completo em [`examples/rds-postgres`](../examples/rds-postgres).
   1. **Recomendado:** um usuário próprio da aplicação, criado por migração, com privilégios mínimos e a senha (ou a `DATABASE_URL`) num SecureString do SSM administrado fora do Terraform. A senha só muda quando o administrador decide, com redeploy planejado. O usuário master fica só para administração.
   2. Usar o segredo do RDS direto na aplicação: referencie `master_user_secret_arn` (ex.: `"${module.database.master_user_secret_arn}:password::"` em `secrets`) e planeje um redeploy logo depois de cada rotação. Outra saída é a aplicação ler o segredo do Secrets Manager em tempo de execução e reconectar quando a autenticação falhar. Mudar a frequência da rotação é feito no Secrets Manager, fora deste módulo.
 - **TLS obrigatório.** `rds.force_ssl = 1` recusa conexões sem TLS. Os clientes precisam de `sslmode=require` (ou `verify-full` com o bundle da CA do RDS).
-- **`apply_method` e diff perpétuo.** A AWS não troca só o `apply_method` de um parâmetro sem mudar o `value`. Quando o `value` é igual ao padrão da família, o plan mostra para sempre um `~` no parameter group se o `apply_method` da configuração for diferente do que a AWS devolve. Por isso o `rds.force_ssl` (padrão `1` desde o PostgreSQL 15) usa `pending-reboot`. O parâmetro é dinâmico e o valor não muda, então nenhum reboot é necessário. Ver "Problematic Plan Changes" na documentação do `aws_db_parameter_group` no provider.
+- **`apply_method` e diff perpétuo.** A AWS não troca só o `apply_method` de um parâmetro sem mudar o `value`. Quando o `value` é igual ao padrão da família, o plan mostra para sempre um `~` no parameter group se o `apply_method` da configuração for diferente do que a AWS devolve. Por isso o `rds.force_ssl` (padrão `1` desde o PostgreSQL 15) usa `pending-reboot`. O parâmetro é dinâmico e o valor não muda, então nenhum reboot é necessário. No PostgreSQL 14 ou anterior (padrão `0`), o parâmetro é do usuário e a AWS o guarda como `immediate`: quem vem da `v0.1.1` vê na `v0.1.2` um `~` em lugar no parameter group, e esse `~` deve ser avaliado antes do apply. Ver "Problematic Plan Changes" na documentação do `aws_db_parameter_group` no provider.
 - **Destruir exige dois passos.** Com `deletion_protection = true`, desligue a proteção num apply e só então apague. O snapshot final é sempre tirado, e os backups automáticos ficam até expirar.
 - **Trocar a CMK ou o `identifier` recria a instância.** Revise o plan: destruir `aws_db_instance` é perda de dados se não houver restore.
 - **Suporte estendido desligado.** No fim do suporte padrão do major, a AWS atualiza o major na janela de manutenção. Planeje a atualização antes ou ligue `open-source-rds-extended-support` (cobrança por vCPU-hora).
