@@ -268,7 +268,8 @@ resource "aws_vpc_security_group_egress_rule" "this" {
   tags                         = merge(var.tags, { Name = "${var.name}-${each.key}" })
 }
 
-# Toda mudança na task definition (imagem nova, por exemplo) a substitui. Com
+# Toda mudança no conteúdo da task definition (imagem, variável, segredo, CPU)
+# a substitui; mudança só de tags, skip_destroy ou track_latest é em lugar. Com
 # skip_destroy, a substituição só tira a revisão antiga do estado, sem
 # desregistrá-la: ela continua ACTIVE como alvo do rollback do circuit breaker
 # e da volta manual. O provider lê o skip_destroy do estado anterior, então a
