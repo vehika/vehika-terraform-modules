@@ -6,7 +6,7 @@ variables {
   name            = "example-alb"
   vpc_id          = "vpc-0example"
   subnet_ids      = ["subnet-0example1", "subnet-0example2"]
-  certificate_arn = "arn:aws:acm:us-east-1:${format("%012d", 0)}:certificate/00000000-0000-0000-0000-000000000000"
+  certificate_arn = "arn:aws:acm:us-east-1:${format("%012d", 0)}:certificate/example-certificate"
 }
 
 run "api_target_group" {
@@ -58,7 +58,7 @@ run "listener_rules_and_certificates" {
     listener_rules = {
       admin = { priority = 10, target_group = "admin", host_headers = ["admin.example.com"], path_patterns = ["/admin/*"] }
     }
-    additional_certificate_arns = ["arn:aws:acm:us-east-1:${format("%012d", 0)}:certificate/11111111-1111-1111-1111-111111111111"]
+    additional_certificate_arns = ["arn:aws:acm:us-east-1:${format("%012d", 0)}:certificate/example-certificate-2"]
     hsts_header_value           = "max-age=31536000; includeSubDomains"
   }
 
@@ -73,7 +73,7 @@ run "listener_rules_and_certificates" {
   }
 
   assert {
-    condition     = length(aws_lb_listener_certificate.additional) == 1 && aws_lb_listener_certificate.additional[0].certificate_arn == "arn:aws:acm:us-east-1:${format("%012d", 0)}:certificate/11111111-1111-1111-1111-111111111111"
+    condition     = length(aws_lb_listener_certificate.additional) == 1 && aws_lb_listener_certificate.additional[0].certificate_arn == "arn:aws:acm:us-east-1:${format("%012d", 0)}:certificate/example-certificate-2"
     error_message = "Certificados extras devem ir para o listener HTTPS."
   }
 

@@ -4,7 +4,7 @@ variables {
   name            = "example-alb"
   vpc_id          = "vpc-0example"
   subnet_ids      = ["subnet-0example1", "subnet-0example2"]
-  certificate_arn = "arn:aws:acm:us-east-1:${format("%012d", 0)}:certificate/00000000-0000-0000-0000-000000000000"
+  certificate_arn = "arn:aws:acm:us-east-1:${format("%012d", 0)}:certificate/example-certificate"
 }
 
 run "accepts_defaults_without_overrides" {
