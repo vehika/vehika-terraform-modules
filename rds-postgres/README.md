@@ -8,7 +8,7 @@ Instância RDS PostgreSQL barata e protegida por padrão: PostgreSQL 17 em `db.t
 | --- | --- | --- |
 | `aws_db_subnet_group` | `<identifier>` | Subnets informadas (normalmente as privadas), em pelo menos duas zonas. |
 | `aws_security_group` | `<identifier>-<sufixo>` | `name_prefix` com `create_before_destroy`. **Sem regra de saída.** Entrada só na porta do banco e só dos security groups de `allowed_security_groups` (uma `aws_vpc_security_group_ingress_rule` por item). |
-| `aws_db_parameter_group` | `<identifier>-postgres<major>` | `rds.force_ssl = 1` fixo, mais os `parameters` extras. `create_before_destroy` para trocas de família. |
+| `aws_db_parameter_group` | `<identifier>-postgres<major>` | `rds.force_ssl = 1` fixo (com `apply_method = "pending-reboot"`, o mesmo que a AWS devolve), mais os `parameters` extras. `create_before_destroy` para trocas de família. |
 | `aws_db_instance` | `<identifier>` | PostgreSQL `17`, `db.t4g.micro`, gp3 20 GiB com autoscaling até 100 GiB, criptografia sempre ligada (CMK opcional), `manage_master_user_password`, single-AZ, sem acesso público, PITR de 14 dias, deletion protection, snapshot final obrigatório, backups automáticos preservados ao apagar, `copy_tags_to_snapshot`, suporte estendido pago desligado. |
 | `aws_db_instance_automated_backups_replication` | — | Só com `backup_replication_enabled`. Criado na região `backup_replication_region` com a chave KMS de lá. |
 | `aws_cloudwatch_log_group` `exports` | `/aws/rds/instance/<identifier>/<tipo>` | Um por item de `enabled_cloudwatch_logs_exports`, com retenção e CMK opcional. Vazio por padrão. |
@@ -95,7 +95,7 @@ Exemplo completo em [`examples/rds-postgres`](../examples/rds-postgres).
 | `enabled_cloudwatch_logs_exports` | `list(string)` | `[]` | `postgresql`, `upgrade`, `iam-db-auth-error`. |
 | `log_retention_in_days` | `number` | `30` | Retenção dos log groups exportados. |
 | `log_group_kms_key_arn` | `string` | `null` | CMK dos log groups exportados. |
-| `parameters` | `list(object)` | `[]` | `{ name, value, apply_method = "immediate" }`; `rds.force_ssl` é reservado. |
+| `parameters` | `list(object)` | `[]` | `{ name, value, apply_method = "immediate" }`; `rds.force_ssl` é reservado. Se o `value` for igual ao padrão da AWS, use o `apply_method` que a AWS devolve para o parâmetro (ver [Avisos](#avisos)). |
 | `backup_replication_enabled` | `bool` | `false` | Liga a cópia dos backups em outra região. |
 | `backup_replication_region` | `string` | `null` | Região de destino. Obrigatória com a replicação. |
 | `backup_replication_kms_key_arn` | `string` | `null` | Chave KMS da região de destino. Obrigatória com a replicação. |
@@ -131,6 +131,7 @@ Exemplo completo em [`examples/rds-postgres`](../examples/rds-postgres).
   1. **Recomendado:** um usuário próprio da aplicação, criado por migração, com privilégios mínimos e a senha (ou a `DATABASE_URL`) num SecureString do SSM administrado fora do Terraform. A senha só muda quando o administrador decide, com redeploy planejado. O usuário master fica só para administração.
   2. Usar o segredo do RDS direto na aplicação: referencie `master_user_secret_arn` (ex.: `"${module.database.master_user_secret_arn}:password::"` em `secrets`) e planeje um redeploy logo depois de cada rotação. Outra saída é a aplicação ler o segredo do Secrets Manager em tempo de execução e reconectar quando a autenticação falhar. Mudar a frequência da rotação é feito no Secrets Manager, fora deste módulo.
 - **TLS obrigatório.** `rds.force_ssl = 1` recusa conexões sem TLS. Os clientes precisam de `sslmode=require` (ou `verify-full` com o bundle da CA do RDS).
+- **`apply_method` e diff perpétuo.** A AWS não troca só o `apply_method` de um parâmetro sem mudar o `value`. Quando o `value` é igual ao padrão da família, o plan mostra para sempre um `~` no parameter group se o `apply_method` da configuração for diferente do que a AWS devolve. Por isso o `rds.force_ssl` (padrão `1` desde o PostgreSQL 15) usa `pending-reboot`. O parâmetro é dinâmico e o valor não muda, então nenhum reboot é necessário. Ver "Problematic Plan Changes" na documentação do `aws_db_parameter_group` no provider.
 - **Destruir exige dois passos.** Com `deletion_protection = true`, desligue a proteção num apply e só então apague. O snapshot final é sempre tirado, e os backups automáticos ficam até expirar.
 - **Trocar a CMK ou o `identifier` recria a instância.** Revise o plan: destruir `aws_db_instance` é perda de dados se não houver restore.
 - **Suporte estendido desligado.** No fim do suporte padrão do major, a AWS atualiza o major na janela de manutenção. Planeje a atualização antes ou ligue `open-source-rds-extended-support` (cobrança por vCPU-hora).

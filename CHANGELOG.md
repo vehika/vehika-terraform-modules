@@ -2,6 +2,18 @@
 
 Versões do repositório inteiro (tags `vX.Y.Z`). Ver [Versionamento](README.md#versionamento).
 
+## 0.1.2 (2026-11-17)
+
+### Corrigido
+
+- `rds-postgres`: o parâmetro fixo `rds.force_ssl` (valor `1`, ainda sem sobrescrita) passa a usar `apply_method = "pending-reboot"` em vez de `immediate`. Isso acaba com o diff perpétuo no `aws_db_parameter_group` depois do primeiro apply (sai `pending-reboot`, entra `immediate`, com o mesmo `value = "1"`).
+  - Causa: a partir do PostgreSQL 15 o padrão do `rds.force_ssl` na AWS já é `1`. Como o valor enviado é igual ao padrão, a AWS não o guarda como parâmetro do usuário e devolve o padrão do sistema com `pending-reboot`. Ela não troca só o `apply_method` sem mudar o `value`, então o `immediate` enviado pelo módulo nunca é gravado. O provider `hashicorp/aws` 6.x documenta esse comportamento em "Problematic Plan Changes" na página do recurso `aws_db_parameter_group` (solução 3: alinhar o `apply_method` com o da AWS).
+  - Evidência no ambiente, 17/11/2026: o `describe-db-parameters` no parameter group criado pela `v0.1.1` (PostgreSQL 17) devolve, para o `rds.force_ssl`, `ParameterValue = "1"`, `ApplyMethod = "pending-reboot"`, `ApplyType = "dynamic"` e `Source = "system"`. O `ParameterApplyStatus` da instância é `in-sync`.
+  - O parâmetro continua explícito no módulo, para garantir o `1` também em famílias cujo padrão é `0` (PostgreSQL 14 ou anterior). Nelas, o valor é aplicado quando a instância sobe com o parameter group do módulo. Trocar o parameter group de uma instância que já existe exige reboot de qualquer forma.
+  - O parâmetro é **dinâmico** no RDS para PostgreSQL (tabela "RDS for PostgreSQL DB instance parameter list", coluna Apply_Type, no guia "Working with parameters on your RDS for PostgreSQL DB instance"; padrão `1` desde o 15 segundo "Requiring an SSL connection to a PostgreSQL DB instance", ambos no RDS User Guide). Como o valor não muda, o `pending-reboot` não exige reboot e o TLS continua obrigatório.
+  - Compatível: quem está na `v0.1.1` e passa para a `v0.1.2` recebe `No changes` no parameter group, porque o estado já guarda o `pending-reboot` lido da AWS. Nenhum outro recurso do módulo muda.
+- `rds-postgres`: teste que confere o `apply_method` do `rds.force_ssl` e aviso no README sobre `apply_method` em parâmetros com o valor padrão da AWS.
+
 ## 0.1.1 (2026-11-17)
 
 ### Adicionado

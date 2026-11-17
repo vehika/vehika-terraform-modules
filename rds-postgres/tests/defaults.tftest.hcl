@@ -95,6 +95,11 @@ run "tls_parameter_group" {
   }
 
   assert {
+    condition     = [for parameter in aws_db_parameter_group.this.parameter : parameter.apply_method if parameter.name == "rds.force_ssl"] == ["pending-reboot"]
+    error_message = "rds.force_ssl deve usar apply_method pending-reboot, o mesmo que a AWS devolve (senão o plan mostra diff perpétuo)."
+  }
+
+  assert {
     condition     = aws_db_instance.this.parameter_group_name == "example-db-postgres17"
     error_message = "A instância deve usar o parameter group do módulo."
   }
