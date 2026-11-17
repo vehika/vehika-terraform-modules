@@ -268,6 +268,11 @@ resource "aws_vpc_security_group_egress_rule" "this" {
   tags                         = merge(var.tags, { Name = "${var.name}-${each.key}" })
 }
 
+# Toda mudança na task definition (imagem nova, por exemplo) a substitui. Com
+# skip_destroy, a substituição só tira a revisão antiga do estado, sem
+# desregistrá-la: ela continua ACTIVE como alvo do rollback do circuit breaker
+# e da volta manual. O provider lê o skip_destroy do estado anterior, então a
+# primeira substituição depois de ligá-lo ainda desregistra a revisão antiga.
 resource "aws_ecs_task_definition" "this" {
   family                   = var.name
   requires_compatibilities = ["FARGATE"]
@@ -277,6 +282,7 @@ resource "aws_ecs_task_definition" "this" {
   execution_role_arn       = aws_iam_role.execution.arn
   task_role_arn            = aws_iam_role.task.arn
   container_definitions    = jsonencode([local.container_definition])
+  skip_destroy             = var.task_definition_skip_destroy
   tags                     = var.tags
 
   runtime_platform {

@@ -2,6 +2,30 @@
 
 Versões do repositório inteiro (tags `vX.Y.Z`). Ver [Versionamento](README.md#versionamento).
 
+## 0.1.3 (não publicada)
+
+### Adicionado
+
+- `ecs-service`: variável `task_definition_skip_destroy` (bool, padrão `true`, não anulável), repassada ao argumento `skip_destroy` do `aws_ecs_task_definition`. Com `true`, quando a task definition é substituída (imagem nova ou qualquer outra mudança) ou destruída, o Terraform só tira a revisão antiga do estado, sem desregistrá-la: ela continua ACTIVE.
+  - Causa: na `v0.1.2`, todo deploy com imagem nova fazia `-/+` e desregistrava a revisão `n` ao registrar a `n+1`. O rollback do circuit breaker e a volta manual ficavam com uma revisão INACTIVE como alvo, e a AWS não aceita apontar um serviço para uma revisão INACTIVE pelo console nem pelo `update-service`.
+  - Fonte: provider `hashicorp/aws` 6.73.0 (a versão que os consumidores travam hoje), recurso `aws_ecs_task_definition`, argumento `skip_destroy`: "Whether to retain the old revision when the resource is destroyed or replacement is necessary. Default is `false`." No código do recurso (`internal/service/ecs/task_definition.go`), `skip_destroy` é `Optional` com `Default: false` e sem `ForceNew`, a função de update não chama a API (só relê o recurso), e a de delete retorna sem `DeregisterTaskDefinition` quando o `skip_destroy` do estado é `true`. O argumento existe em toda a faixa `>= 6.19, < 7.0` exigida pelo módulo.
+  - O plan do deploy de uma imagem nova continua igual: `-/+` no `aws_ecs_task_definition` (agora com `skip_destroy = true` nos dois lados) e `~ task_definition` no `aws_ecs_service`. Guardas de plan que aceitam só essas duas ações continuam passando.
+  - `false` mantém o comportamento da `v0.1.2`.
+- `ecs-service`: testes do padrão `true`, de `false` e de `null`, que vira `true`.
+- `ecs-service`: README com a variável e um aviso sobre o acúmulo de revisões ACTIVE e a limpeza manual.
+
+### Subida da `v0.1.2` para a `v0.1.3`
+
+- Plan esperado, com a **mesma** imagem e o padrão `true`: um `~` em lugar por serviço, só no `aws_ecs_task_definition`, com `skip_destroy = false -> true`. Num consumidor com API e worker, são 2 updates em lugar. Nada é substituído nem destruído, e o `aws_ecs_service` fica sem mudança, porque o ARN da revisão não muda. O apply só atualiza o estado, sem chamada à API do ECS.
+- **Aplique a subida sozinha, antes de um deploy de imagem nova.** O provider decide se desregistra lendo o `skip_destroy` do **estado anterior**. Se a subida vier no mesmo apply de uma imagem nova, o plan mostra `-/+` com `skip_destroy = false -> true`, e essa primeira substituição ainda desregistra a revisão antiga. Os deploys seguintes já a mantêm ACTIVE.
+- Com `task_definition_skip_destroy = false`, a subida não muda nada (`No changes`).
+- Versão de patch: a mudança no padrão só altera o estado. Nenhum recurso da AWS muda na subida, e o plan dos deploys tem as mesmas ações.
+
+### Operação
+
+- **Acúmulo:** cada deploy deixa uma revisão ACTIVE fora do estado, e destruir o módulo deixa a última. Revisões ACTIVE não têm custo.
+- **Limpeza:** é manual e feita item a item. Liste com `aws ecs list-task-definitions --family-prefix <família> --status ACTIVE --sort DESC`. Mantenha a revisão em uso pelo serviço e pelo menos a anterior, que é o alvo do rollback. Desregistre as outras uma a uma com `aws ecs deregister-task-definition --task-definition <família>:<n>`. Uma revisão INACTIVE não volta a ser ACTIVE.
+
 ## 0.1.2 (2026-11-17)
 
 ### Adicionado
