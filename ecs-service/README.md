@@ -14,7 +14,7 @@ Serviço ECS no Fargate (ARM64 por padrão) com task definition de um contêiner
 | `aws_iam_role_policy` `ecs_exec` | `ecs-exec` | Só com `enable_execute_command`: ações `ssmmessages` (sem escopo por recurso). |
 | `aws_security_group` | `<name>-<sufixo>` | `name_prefix` com `create_before_destroy`. Entrada só na `container_port` e só dos `allowed_security_groups`; nenhuma entrada por CIDR. Saída por `egress_rules` (padrão: só TCP 443 para `0.0.0.0/0`). |
 | `aws_ecs_task_definition` | família `<name>` | Fargate, `awsvpc`, `ARM64`/Linux, 256 CPU e 512 MiB, contêiner `app` essencial com `initProcessEnabled`, logs `awslogs`, variáveis ordenadas e segredos por `valueFrom`. |
-| `aws_ecs_service` | `<name>` | Capacity provider strategy (padrão `FARGATE`), circuit breaker com rollback, `availability_zone_rebalancing`, tags propagadas do serviço, target group opcional. `desired_count` ignorado depois da criação. |
+| `aws_ecs_service` | `<name>` | Capacity provider strategy (padrão `FARGATE`), circuit breaker com rollback, `availability_zone_rebalancing` (padrão `ENABLED`), tags propagadas do serviço, target group opcional. `desired_count` ignorado depois da criação. |
 | `aws_appautoscaling_target` + `aws_appautoscaling_policy` | `<name>-cpu` | Só com `autoscaling_max_capacity`: target tracking de `ECSServiceAverageCPUUtilization` (alvo 70%). |
 | `aws_cloudwatch_metric_alarm` | `<name>-cpu`, `<name>-memory` | `AWS/ECS` `CPUUtilization`/`MemoryUtilization` médias acima de 85% em 3 períodos de 300 s. |
 
@@ -63,7 +63,23 @@ module "api" {
 }
 ```
 
-Worker no Fargate Spot, sem porta: o mesmo módulo com `capacity_provider_strategy = [{ capacity_provider = "FARGATE_SPOT" }]`, sem `container_port`, `target_group_arn` e `allowed_security_groups`.
+Worker sem porta, com uma tarefa por vez (crons que não podem rodar em dobro): o mesmo módulo sem `container_port`, `target_group_arn` e `allowed_security_groups`, com deploy `0/100` e o rebalanceamento entre zonas desligado, que a AWS exige nesse caso:
+
+```hcl
+module "worker" {
+  source = "git::https://github.com/vehika/vehika-terraform-modules.git//ecs-service?ref=v0.1.2"
+
+  # ... mesmas entradas obrigatórias da API ...
+  command = ["node", "dist/worker.js"]
+
+  # No deploy, a tarefa antiga para antes de a nova subir.
+  deployment_minimum_healthy_percent = 0
+  deployment_maximum_percent         = 100
+  availability_zone_rebalancing      = "DISABLED"
+}
+```
+
+O worker fica no `FARGATE` (padrão) com `ARM64` (padrão). Fargate Spot só com `cpu_architecture = "X86_64"`, depois de validar, e em cargas que toleram interrupção (ver Avisos).
 
 As **chaves** de `secrets`, `task_role_policies`, `allowed_security_groups` e `egress_rules` precisam ser conhecidas no plan (use nomes fixos); os valores podem vir de recursos da mesma stack.
 
@@ -97,6 +113,7 @@ As **chaves** de `secrets`, `task_role_policies`, `allowed_security_groups` e `e
 | `capacity_provider_strategy` | `list(object)` | `[{ capacity_provider = "FARGATE" }]` | `FARGATE` e/ou `FARGATE_SPOT`, com `weight` (padrão 1) e `base` (padrão 0). |
 | `deployment_minimum_healthy_percent` | `number` | `100` | Mínimo saudável no deploy. |
 | `deployment_maximum_percent` | `number` | `200` | Máximo no deploy. |
+| `availability_zone_rebalancing` | `string` | `"ENABLED"` | `ENABLED` ou `DISABLED`. `ENABLED` exige `deployment_maximum_percent` maior que 100; deploy `0/100` exige `DISABLED`. |
 | `target_group_arn` | `string` | `null` | Target group (tipo `ip`); exige `container_port`. |
 | `health_check_grace_period_seconds` | `number` | `60` | Só com target group. |
 | `allowed_security_groups` | `map(string)` | `{}` | Nome lógico => ID de SG com entrada na `container_port`. |
@@ -136,6 +153,8 @@ As **chaves** de `secrets`, `task_role_policies`, `allowed_security_groups` e `e
 - **Sem NAT.** Em subnet pública, use `assign_public_ip = true`; sem IP público e sem NAT, a tarefa não puxa a imagem nem lê segredos. O security group continua sem entrada da internet.
 - **Saída `0.0.0.0/0` na porta 443.** É o padrão porque, sem NAT nem endpoints de interface, ECR, SSM, Secrets Manager, CloudWatch Logs e APIs externas só são alcançados pelos endpoints públicos. O trivy aponta AWS-0104; a exceção fica no próprio recurso e vale só para regras com `from_port = 443`. Regras mais amplas continuam reprovando.
 - **`desired_count` só na criação.** O módulo ignora mudanças nele para não brigar com o autoscaling. Para mudar a contagem sem autoscaling, use `autoscaling_min_capacity = autoscaling_max_capacity`.
+- **Rebalanceamento entre zonas.** Com `availability_zone_rebalancing = "ENABLED"` (padrão), o ECS redistribui as tarefas quando elas ficam desiguais entre as zonas. A AWS não aceita o rebalanceamento com `maximumPercent` de 100% e recusa a criação do serviço com `InvalidParameterException: ... Availability Zone Rebalancing does not support maximumPercent <= 100 % as deployment configuration.` A validação do módulo pega essa combinação no plan. Um worker `0/100` precisa de `DISABLED`. Fonte: "Balancing an Amazon ECS service across Availability Zones", no Amazon ECS Developer Guide.
+- **Fargate Spot e ARM64.** A documentação do ECS ("Amazon ECS clusters for Fargate") não confirma Fargate Spot com `ARM64`, que é a arquitetura padrão do módulo. Com `ARM64`, use `FARGATE`. Spot só com `cpu_architecture = "X86_64"` (e imagem `linux/amd64`), depois de validar no ambiente.
 - **Fargate Spot** pode interromper a tarefa com 2 minutos de aviso (SIGTERM). Use só em cargas que toleram interrupção (worker idempotente) e trate o SIGTERM dentro de `stop_timeout`.
 - **ARM64.** A imagem precisa ser `linux/arm64` (ou multi-arquitetura).
 - **Permissões de quem aplica.** Além de ECS, IAM e logs, o deploy precisa de `iam:PassRole` das duas roles para `ecs-tasks.amazonaws.com`, de Application Auto Scaling quando houver autoscaling, e as service-linked roles do ECS e do Application Auto Scaling precisam existir (ou quem aplica precisa poder criá-las).

@@ -125,6 +125,11 @@ run "service_defaults" {
   }
 
   assert {
+    condition     = aws_ecs_service.this.availability_zone_rebalancing == "ENABLED" && aws_ecs_service.this.deployment_minimum_healthy_percent == 100 && aws_ecs_service.this.deployment_maximum_percent == 200
+    error_message = "O padrão deve manter o rebalanceamento entre zonas ENABLED com deploy 100/200, como na v0.1.1."
+  }
+
+  assert {
     condition     = length(aws_appautoscaling_target.this) == 0 && length(aws_appautoscaling_policy.cpu) == 0
     error_message = "Sem autoscaling_max_capacity, não há autoscaling."
   }
@@ -214,5 +219,33 @@ run "logs_and_alarms" {
   assert {
     condition     = alltrue([for alarm in values(aws_cloudwatch_metric_alarm.this) : alarm.namespace == "AWS/ECS" && alarm.threshold == 85 && alarm.dimensions == tomap({ ClusterName = "example-cluster", ServiceName = "example-worker" })])
     error_message = "Os alarmes devem observar AWS/ECS do serviço, com limite de 85%."
+  }
+}
+
+run "worker_zero_to_one_hundred_with_rebalancing_disabled" {
+  command = plan
+
+  variables {
+    deployment_minimum_healthy_percent = 0
+    deployment_maximum_percent         = 100
+    availability_zone_rebalancing      = "DISABLED"
+  }
+
+  assert {
+    condition     = aws_ecs_service.this.availability_zone_rebalancing == "DISABLED" && aws_ecs_service.this.deployment_minimum_healthy_percent == 0 && aws_ecs_service.this.deployment_maximum_percent == 100
+    error_message = "O worker 0/100 com DISABLED deve passar e repassar os três valores ao serviço."
+  }
+}
+
+run "rebalancing_disabled_with_default_deployment" {
+  command = plan
+
+  variables {
+    availability_zone_rebalancing = "DISABLED"
+  }
+
+  assert {
+    condition     = aws_ecs_service.this.availability_zone_rebalancing == "DISABLED" && aws_ecs_service.this.deployment_maximum_percent == 200
+    error_message = "DISABLED também deve ser aceito com o deploy padrão 100/200."
   }
 }

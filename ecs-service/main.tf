@@ -294,7 +294,7 @@ resource "aws_ecs_service" "this" {
   enable_execute_command             = var.enable_execute_command
   enable_ecs_managed_tags            = true
   propagate_tags                     = "SERVICE"
-  availability_zone_rebalancing      = "ENABLED"
+  availability_zone_rebalancing      = var.availability_zone_rebalancing
   deployment_minimum_healthy_percent = var.deployment_minimum_healthy_percent
   deployment_maximum_percent         = var.deployment_maximum_percent
   health_check_grace_period_seconds  = var.target_group_arn == null ? null : var.health_check_grace_period_seconds

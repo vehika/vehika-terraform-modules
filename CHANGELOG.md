@@ -4,7 +4,19 @@ Versões do repositório inteiro (tags `vX.Y.Z`). Ver [Versionamento](README.md#
 
 ## 0.1.2 (2026-11-17)
 
+### Adicionado
+
+- `ecs-service`: variável `availability_zone_rebalancing` (`ENABLED` ou `DISABLED`, padrão `ENABLED`) no lugar do `ENABLED` fixo do `aws_ecs_service`. Ela permite um serviço com deploy `0/100` (`deployment_minimum_healthy_percent = 0` e `deployment_maximum_percent = 100`), como um worker com crons que não podem rodar em dobro.
+  - Causa: a AWS recusa a criação do serviço com o rebalanceamento ligado e `maximumPercent` de 100%: `InvalidParameterException: The service couldn't be created because Availability Zone Rebalancing does not support maximumPercent <= 100 % as deployment configuration.` A `v0.1.1` fixava `ENABLED`, então não havia como criar um serviço `0/100` com o módulo.
+  - Fonte: "Balancing an Amazon ECS service across Availability Zones", seção "Considerations for configuring Availability Zone rebalancing", no Amazon ECS Developer Guide (`service-rebalancing.html`, consultado em 17/11/2026). Entre os critérios que impedem o rebalanceamento estão: "Uses 100% for the maximumPercent value", a estratégia Daemon, o launch type EXTERNAL, Classic Load Balancer e a restrição de posicionamento `attribute:ecs.availability-zone`. Só o critério do `maximumPercent` se aplica ao módulo (Fargate por capacity provider, ALB e sem placement).
+  - Validação nova: `ENABLED` exige `deployment_maximum_percent` maior que 100. A mensagem cita o erro da AWS e manda usar `DISABLED` no deploy `0/100`. A combinação recusada falhava antes no apply e agora falha no plan; nenhuma configuração que a AWS aceitava deixa de passar.
+  - Compatível: com o padrão `ENABLED`, quem está na `v0.1.1` e passa para a `v0.1.2` recebe `No changes` no `aws_ecs_service`, porque o valor enviado é o mesmo.
+- `ecs-service`: testes do padrão `ENABLED`, do worker `0/100` com `DISABLED`, da recusa de `ENABLED` com `deployment_maximum_percent = 100` e da recusa de valor inválido.
+
 ### Corrigido
+
+- `ecs-service`: o README e a descrição de `capacity_provider_strategy` deixam de sugerir Fargate Spot com a arquitetura padrão `ARM64`. A documentação do ECS ("Amazon ECS clusters for Fargate", consultada em 17/11/2026) não confirma Fargate Spot com `ARM64`. A recomendação passa a ser `FARGATE` com `ARM64`, ou Spot com `X86_64` depois de validar. O README ganha o exemplo do worker `0/100` com `availability_zone_rebalancing = "DISABLED"`.
+- Exemplos `examples/complete` e `examples/ecs-service`: o worker passa de `FARGATE_SPOT` para `FARGATE` (ARM64), e o worker `0/100` do `examples/complete` usa `availability_zone_rebalancing = "DISABLED"`. Os clusters continuam com os dois capacity providers.
 
 - `rds-postgres`: o parâmetro fixo `rds.force_ssl` (valor `1`, ainda sem sobrescrita) passa a usar `apply_method = "pending-reboot"` em vez de `immediate`. Isso acaba com o diff perpétuo no `aws_db_parameter_group` depois do primeiro apply (sai `pending-reboot`, entra `immediate`, com o mesmo `value = "1"`).
   - Causa: a partir do PostgreSQL 15 o padrão do `rds.force_ssl` na AWS já é `1`. Como o valor enviado é igual ao padrão, a AWS não o guarda como parâmetro do usuário e devolve o padrão do sistema com `pending-reboot`. Ela não troca só o `apply_method` sem mudar o `value`, então o `immediate` enviado pelo módulo nunca é gravado. O provider `hashicorp/aws` 6.x documenta esse comportamento em "Problematic Plan Changes" na página do recurso `aws_db_parameter_group` (solução 3: alinhar o `apply_method` com o da AWS).

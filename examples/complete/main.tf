@@ -116,13 +116,17 @@ module "worker" {
   role_path                = var.role_path
   permissions_boundary_arn = var.permissions_boundary_arn
 
-  capacity_provider_strategy = [{ capacity_provider = "FARGATE_SPOT" }]
+  # FARGATE (padrão) com ARM64 (padrão): a documentação do ECS não confirma
+  # Fargate Spot com ARM64.
+  capacity_provider_strategy = [{ capacity_provider = "FARGATE" }]
 
   # Uma tarefa só por vez: no deploy, a antiga para antes de a nova subir, e
-  # os crons não rodam em dobro. stop_timeout de 120 s usa todo o aviso de
-  # interrupção do Spot para terminar o trabalho em andamento.
+  # os crons não rodam em dobro. A AWS não aceita o rebalanceamento entre
+  # zonas com maximumPercent de 100%, então ele fica desligado. stop_timeout
+  # de 120 s dá tempo para terminar o trabalho em andamento no SIGTERM.
   deployment_minimum_healthy_percent = 0
   deployment_maximum_percent         = 100
+  availability_zone_rebalancing      = "DISABLED"
   stop_timeout                       = 120
 
   secrets = {
