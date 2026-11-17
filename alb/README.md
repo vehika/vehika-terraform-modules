@@ -6,7 +6,7 @@ Application Load Balancer público com HTTPS obrigatório (certificado do ACM re
 
 | Recurso | Nome | Detalhe |
 | --- | --- | --- |
-| `aws_security_group` | `<name>` | Entrada TCP 80 e 443 de `ingress_cidr_blocks` (padrão `0.0.0.0/0`). Saída só para os `target_security_groups`, na porta de cada um. |
+| `aws_security_group` | `<name>-<sufixo>` | `name_prefix` com `create_before_destroy`. Entrada TCP 80 e 443 de `ingress_cidr_blocks` (padrão `0.0.0.0/0`). Saída só para os `target_security_groups`, na porta de cada um. |
 | `aws_lb` | `<name>` | `application`, voltado à internet, IPv4, `drop_invalid_header_fields`, desync `defensive`, HTTP/2, deletion protection; access logs só com `access_logs_bucket`. |
 | `aws_lb_target_group` | `<name>-<chave>` (ou `name`) | Um por item de `target_groups`: tipo `ip`, HTTP, deregistration delay 30 s, health check em `traffic-port` (padrão `/`, `200-399`, 15 s). |
 | `aws_lb_listener` `http` | — | Porta 80: só redireciona para HTTPS 443 (301). |
@@ -110,9 +110,16 @@ Exemplo completo em [`examples/alb`](../examples/alb).
 ## Avisos
 
 - **Certificado antes do apply.** O listener HTTPS exige um certificado do ACM **emitido**. Com DNS fora da AWS, peça o certificado, crie o CNAME de validação no provedor de DNS e espere o status `ISSUED` antes de aplicar o módulo.
-- **Proxy na frente do ALB.** Se o domínio passar por um proxy (ex.: CDN com proxy ligado), o ALB vê o IP do proxy: o rate limit agruparia todos os clientes e a lista de reputação avaliaria o proxy. Use DNS sem proxy ou configure `waf_forwarded_ip_header` (e restrinja `ingress_cidr_blocks` às faixas do proxy).
-- **Corpo acima de 8 KB.** A regra `SizeRestrictions_BODY` do grupo Common bloqueia corpos maiores que 8 KB (ex.: upload direto pela API). Se a API recebe uploads, use `waf_rule_count_overrides = { common = ["SizeRestrictions_BODY"] }` ou envie arquivos por URL pré-assinada do S3.
-- **ALB público.** O trivy aponta AWS-0053 (load balancer exposto); a exceção fica no próprio `aws_lb`, porque o ALB voltado à internet é a entrada da API por decisão de arquitetura, com WAF associado.
+- **Proxy na frente do ALB.** Se o domínio passar por um proxy (ex.: CDN com proxy ligado), o ALB vê o IP do proxy: o rate limit agruparia todos os clientes e a lista de reputação avaliaria o proxy. Use DNS sem proxy ou configure `waf_forwarded_ip_header` **e** restrinja `ingress_cidr_blocks` às faixas do proxy.
+- **`waf_forwarded_ip_header` só com proxy confiável.** O WAF usa o valor do cabeçalho como IP do cliente. Sem um proxy confiável que sobrescreva o cabeçalho, e sem `ingress_cidr_blocks` limitado às faixas desse proxy, qualquer cliente pode forjar o cabeçalho, trocar de "IP" a cada requisição e escapar do rate limit. Com Cloudflare em **DNS-only** (sem proxy), a conexão chega direto ao ALB: deixe `waf_forwarded_ip_header = null` (padrão), e o WAF usa o IP de origem.
+- **Entrada `0.0.0.0/0` nas portas 80 e 443 (exceção declarada).** O security group do ALB público aceita a internet inteira, por padrão, só em TCP 80 (que apenas redireciona para HTTPS) e TCP 443. É uma exceção consciente à regra de entrada irrestrita (AWS-0107 no trivy). O trivy 0.76 não aponta esse recurso, por isso não há comentário de exceção no código, mas a decisão vale do mesmo jeito. A proteção fica no WAF, na política de TLS e no fato de o ALB só encaminhar para os target groups.
+- **Uploads multipart (corpo acima de 8 KB).** A regra `SizeRestrictions_BODY` do grupo Common bloqueia corpos maiores que 8 KB, e isso inclui upload `multipart/form-data` direto pela API. Para uma API que recebe uploads, use:
+
+  ```hcl
+  waf_rule_count_overrides = { common = ["SizeRestrictions_BODY"] }
+  ```
+
+  A regra passa a só contar (aparece nas métricas e nos logs do WAF), e as demais regras do grupo continuam bloqueando. Outra opção é enviar arquivos direto ao S3 por URL pré-assinada; aí o override não é necessário.
 - **Access logs.** O bucket precisa de bucket policy para a entrega do ELB na região e de SSE-S3 (o ELB não grava com SSE-KMS).
 - **Destruir exige dois passos.** Com `deletion_protection = true`, desligue a proteção num apply e só então apague.
 - **Trocar um target group** (porta, protocolo) recria o recurso com o mesmo nome; a AWS recusa enquanto ele estiver em uso. Mude a chave (novo nome) e migre o serviço.

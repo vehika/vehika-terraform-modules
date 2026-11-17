@@ -53,8 +53,10 @@ locals {
   }
 }
 
+# name_prefix com create_before_destroy: uma troca do grupo cria o novo
+# antes de soltar o antigo, sem colisão de nome.
 resource "aws_security_group" "this" {
-  name        = var.name
+  name_prefix = "${var.name}-"
   description = "ALB ${var.name}: entrada HTTP/HTTPS e saida so para os alvos."
   vpc_id      = var.vpc_id
   tags        = merge(var.tags, { Name = var.name })
@@ -64,8 +66,9 @@ resource "aws_security_group" "this" {
   }
 }
 
-# Entrada da internet só em 80 (redireciona para 443) e 443; o WAF filtra o
-# tráfego HTTP.
+# Entrada da internet (0.0.0.0/0 por padrão) só em 80, que redireciona para
+# 443, e 443; o WAF filtra o tráfego HTTP. É uma exceção declarada ao AWS-0107
+# (entrada irrestrita), que o trivy 0.76 não aponta neste recurso; ver README.
 resource "aws_vpc_security_group_ingress_rule" "this" {
   for_each = local.ingress_rules
 

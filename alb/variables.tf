@@ -249,7 +249,7 @@ variable "waf_rate_limit_window" {
 }
 
 variable "waf_forwarded_ip_header" {
-  description = "Cabeçalho com o IP real do cliente quando há proxy na frente do ALB (ex.: CF-Connecting-IP ou X-Forwarded-For). Nulo (padrão) usa o IP de origem da conexão. Com proxy e sem este cabeçalho, o rate limit agrupa todos os clientes no IP do proxy."
+  description = "Cabeçalho com o IP real do cliente quando há proxy na frente do ALB (ex.: CF-Connecting-IP ou X-Forwarded-For). Nulo (padrão) usa o IP de origem da conexão. Com proxy e sem este cabeçalho, o rate limit agrupa todos os clientes no IP do proxy. Use só atrás de proxy confiável e com ingress_cidr_blocks limitado a ele: sem isso, o cliente forja o cabeçalho."
   type        = string
   default     = null
 

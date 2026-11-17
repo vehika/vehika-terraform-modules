@@ -76,6 +76,11 @@ run "security_group" {
   command = plan
 
   assert {
+    condition     = aws_security_group.this.name_prefix == "example-alb-" && aws_security_group.this.vpc_id == "vpc-0example"
+    error_message = "O security group deve usar name_prefix <name>- na VPC informada."
+  }
+
+  assert {
     condition     = keys(aws_vpc_security_group_ingress_rule.this) == ["http-0", "https-0"]
     error_message = "A entrada padrão deve ser 80 e 443."
   }
